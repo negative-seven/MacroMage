@@ -44,15 +44,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BitBuffer.cs" />
+    <Compile Include="GameLevel\Object\LevelObject.cs" />
+    <Compile Include="GameLevel\Object\GameObject.cs" />
     <Compile Include="GameLevel\Level.cs" />
-    <Compile Include="GameLevel\Tile\Tile.cs" />
+    <Compile Include="GameLevel\LevelSegment.cs" />
     <Compile Include="Palette\NesColor.cs" />
     <Compile Include="Palette\NesColorMapping.cs" />
     <Compile Include="Palette\NesPalette.cs" />
     <Compile Include="GameLevel\Tile\Tile16.cs" />
     <Compile Include="GameLevel\Tile\Tile32.cs" />
     <Compile Include="GameLevel\Tile\Tile32Row.cs" />
-    <Compile Include="GameLevel\Tile\Tile8.cs" />
+    <Compile Include="GameLevel\PatternTableTile.cs" />
     <Compile Include="Rom\Exception\ChecksumMismatchException.cs" />
     <Compile Include="Rom\GameRom.cs" />
     <Compile Include="LevelDataParser.cs" />

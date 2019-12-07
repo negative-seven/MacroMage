@@ -8,17 +8,18 @@ using System.Threading.Tasks;
 
 namespace MacroMage.GameLevel.Tile
 {
-	public class Tile32 : Tile
+	public class Tile32 : ILevelSegment
 	{
 		public const int PIXEL_WIDTH = Tile16.PIXEL_WIDTH * 2;
 		public const int PIXEL_HEIGHT = Tile16.PIXEL_HEIGHT * 2;
-		public override int CONST_PIXEL_WIDTH => PIXEL_WIDTH;
-		public override int CONST_PIXEL_HEIGHT => PIXEL_HEIGHT;
 
 
 
-		public override Level Level { get; set; }
-		public override int Id { get; set; }
+		public Level Level { get; set; }
+		public int Id { get; set; }
+
+		public int PixelWidth => PIXEL_WIDTH;
+		public int PixelHeight => PIXEL_HEIGHT;
 
 		public int TopLeftId { get; set; }
 		public int TopRightId { get; set; }
@@ -32,7 +33,7 @@ namespace MacroMage.GameLevel.Tile
 
 
 		
-		public override Bitmap AsBitmap(NesColorMapping colorMapping)
+		public Bitmap AsBitmap(NesColorMapping colorMapping)
 		{
 			var bitmap = new Bitmap(PIXEL_WIDTH, PIXEL_HEIGHT);
 			var graphics = Graphics.FromImage(bitmap);

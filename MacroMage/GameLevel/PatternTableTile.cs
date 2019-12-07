@@ -6,43 +6,45 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MacroMage.GameLevel.Tile
+namespace MacroMage.GameLevel
 {
-	public class Tile8 : Tile
+	public class PatternTableTile : ILevelSegment
 	{
 		public const int PIXEL_WIDTH = 8;
 		public const int PIXEL_HEIGHT = 8;
-		public override int CONST_PIXEL_WIDTH => PIXEL_WIDTH;
-		public override int CONST_PIXEL_HEIGHT => PIXEL_HEIGHT;
 
 
 
-		public override Level Level { get; set; }
-		public override int Id { get; set; }
+		public Level Level { get; set; }
+		public int Id { get; set; }
+
+		public int PixelWidth => PIXEL_WIDTH;
+		public int PixelHeight => PIXEL_HEIGHT;
 
 		public byte[][] Pattern { get; set; }
 
+		
 
 
-		public override Bitmap AsBitmap(NesColorMapping colorMapping)
+		public Bitmap AsBitmap(NesColorMapping colorMapping)
 		{
 			return AsBitmap(Level.Tile16Palettes.First(), colorMapping);
 		}
 
-		public Bitmap AsBitmap(NesPalette palette, NesColorMapping colorMapping)
+		public Bitmap AsBitmap(NesPalette palette, NesColorMapping colorMapping, bool alpha = false)
 		{
-			var bitmap = new Bitmap(CONST_PIXEL_WIDTH, CONST_PIXEL_HEIGHT);
+			var bitmap = new Bitmap(PIXEL_WIDTH, PIXEL_HEIGHT);
 
-			for (int y = 0; y < CONST_PIXEL_HEIGHT; y++)
+			for (int y = 0; y < PIXEL_HEIGHT; y++)
 			{
-				for (int x = 0; x < CONST_PIXEL_WIDTH; x++)
+				for (int x = 0; x < PIXEL_WIDTH; x++)
 				{
 					Color color;
 					switch (Pattern[y][x])
 					{
 						case 0:
 						default:
-							color = palette.BgColor.AsArgbColor(colorMapping);
+							color = alpha ? Color.Transparent : palette.BgColor.AsArgbColor(colorMapping);
 							break;
 
 						case 1:

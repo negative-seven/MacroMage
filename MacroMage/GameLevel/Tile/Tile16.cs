@@ -8,17 +8,18 @@ using System.Threading.Tasks;
 
 namespace MacroMage.GameLevel.Tile
 {
-	public class Tile16 : Tile
+	public class Tile16 : ILevelSegment
 	{
-		public const int PIXEL_WIDTH = Tile8.PIXEL_WIDTH * 2;
-		public const int PIXEL_HEIGHT = Tile8.PIXEL_HEIGHT * 2;
-		public override int CONST_PIXEL_WIDTH => PIXEL_WIDTH;
-		public override int CONST_PIXEL_HEIGHT => PIXEL_HEIGHT;
+		public const int PIXEL_WIDTH = PatternTableTile.PIXEL_WIDTH * 2;
+		public const int PIXEL_HEIGHT = PatternTableTile.PIXEL_HEIGHT * 2;
 
 
 
-		public override Level Level { get; set; }
-		public override int Id { get; set; }
+		public Level Level { get; set; }
+		public int Id { get; set; }
+
+		public int PixelWidth => PIXEL_WIDTH;
+		public int PixelHeight => PIXEL_HEIGHT;
 
 		public int TopLeftId { get; set; }
 		public int TopRightId { get; set; }
@@ -28,16 +29,16 @@ namespace MacroMage.GameLevel.Tile
 		public int PaletteId { get; set; }
 		public int MirrorId { get; set; }
 
-		public Tile8 TopLeftTile { get { return Level.Tile8s[TopLeftId]; } }
-		public Tile8 TopRightTile { get { return Level.Tile8s[TopRightId]; } }
-		public Tile8 BottomLeftTile { get { return Level.Tile8s[BottomLeftId]; } }
-		public Tile8 BottomRightTile { get { return Level.Tile8s[BottomRightId]; } }
+		public PatternTableTile TopLeftTile { get { return Level.Tile8s[TopLeftId]; } }
+		public PatternTableTile TopRightTile { get { return Level.Tile8s[TopRightId]; } }
+		public PatternTableTile BottomLeftTile { get { return Level.Tile8s[BottomLeftId]; } }
+		public PatternTableTile BottomRightTile { get { return Level.Tile8s[BottomRightId]; } }
 		public NesPalette Palette { get { return Level.Tile16Palettes[PaletteId]; } }
 		public Tile16 Mirror { get { return Level.Tile16s[MirrorId];  } }
 
 
 		
-		public override Bitmap AsBitmap(NesColorMapping colorMapping)
+		public Bitmap AsBitmap(NesColorMapping colorMapping)
 		{
 			var bitmap = new Bitmap(PIXEL_WIDTH, PIXEL_HEIGHT);
 			var graphics = Graphics.FromImage(bitmap);

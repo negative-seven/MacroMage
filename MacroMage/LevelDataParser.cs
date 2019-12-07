@@ -1,4 +1,5 @@
 ﻿using MacroMage.GameLevel;
+using MacroMage.GameLevel.Object;
 using MacroMage.GameLevel.Tile;
 using MacroMage.Palette;
 using MacroMage.Rom;
@@ -20,33 +21,34 @@ namespace MacroMage
 
 
 
-		private GameRom gameRom;
-		private int levelId;
-
-		private Level level;
+		private GameRom gameRom { get; set; }
+		private Level level { get; set; }
 
 
 		
 		public Level Run(GameRom gameRom, int levelId)
 		{
 			this.gameRom = gameRom;
-			this.levelId = levelId;
 
 			level = new Level(levelId);
-			level.Tile8s = GetTile8s().ToList();
-			level.Tile16Palettes = GetTile16Palettes(level).ToList();
-			level.Tile16s = GetTile16s(level).ToList();
-			level.Tile32s = GetTile32s(level).ToList();
-			level.Rows = GetTile32Rows(level).ToList();
+			level.Tile8s = GetTile8s();
+			level.Tile16Palettes = GetTile16Palettes(level);
+			level.Tile16s = GetTile16s(level);
+			level.Tile32s = GetTile32s(level);
+			level.Tile32Rows = GetTile32Rows(level);
+			level.SpriteTiles = GetSpriteTiles(level);
+			level.SpritePalettes = GetSpritePalettes(level);
+			level.GameObjects = GetGameObjects(level);
+			level.LevelObjects = GetLevelObjects(level);
 
 			return level;
 		}
 
-		private IList<Tile32Row> GetTile32Rows(Level level)
+		private List<Tile32Row> GetTile32Rows(Level level)
 		{
 			var rows = new List<Tile32Row>();
 
-			var tileDataPointer = (ushort)(gameRom.PrgRom.WordAtAddress((ushort)(0xdad0 + levelId * 2)) + 1);
+			var tileDataPointer = (ushort)(gameRom.PrgRom.WordAtAddress((ushort)(0xdad0 + level.Id * 2)) + 1);
 
 			for (int tileRowIndex = 0; tileRowIndex < Level.ROWS_COUNT; tileRowIndex++)
 			{
@@ -73,7 +75,7 @@ namespace MacroMage
 			return rows;
 		}
 		
-		private IList<Tile32> GetTile32s(Level level)
+		private List<Tile32> GetTile32s(Level level)
 		{
 			var tiles = new List<Tile32>();
 			
@@ -124,7 +126,7 @@ namespace MacroMage
 			return tiles;
 		}
 
-		private IList<Tile16> GetTile16s(Level level)
+		private List<Tile16> GetTile16s(Level level)
 		{
 			var tiles = new List<Tile16>();
 
@@ -221,9 +223,9 @@ namespace MacroMage
 			return tiles;
 		}
 
-		private IList<Tile8> GetTile8s()
+		private List<PatternTableTile> GetTile8s()
 		{
-			var tiles = new List<Tile8>();
+			var tiles = new List<PatternTableTile>();
 
 			for (var id = 0; id < 0x100; id++)
 			{
@@ -247,7 +249,7 @@ namespace MacroMage
 					pattern[columnIndex] = row;
 				}
 				
-				tiles.Add(new Tile8()
+				tiles.Add(new PatternTableTile()
 				{
 					Level = level,
 					Id = id,
@@ -258,7 +260,7 @@ namespace MacroMage
 			return tiles;
 		}
 
-		private IList<NesPalette> GetTile16Palettes(Level level)
+		private List<NesPalette> GetTile16Palettes(Level level)
 		{
 			var localTileDataPointer = gameRom.PrgRom.WordAtAddress((ushort)(0xaf10 + level.World * 2));
 
@@ -269,29 +271,8 @@ namespace MacroMage
 			localTileDataPointer += (ushort)(localTile32Count * 4); // skip tile32 corner data
 
 			var palettesPointer = localTileDataPointer;
-
-			BigInteger bits = 0;
-			for (var i = 8; i >= 0; i--)
-			{
-				var dataByte = gameRom.PrgRom.ByteAtAddress((ushort)(palettesPointer + i));
-				for (var j = 0; j < 8; j++)
-				{
-					bits <<= 1;
-					bits |= (dataByte & 0b1);
-					dataByte >>= 1;
-				}
-			}
-
-			var colorData = Enumerable.Repeat((byte)0, 12).ToArray();
-			for (var i = 0; i < 12; i++)
-			{
-				for (var j = 0; j < 6; j++)
-				{
-					colorData[i] <<= 1;
-					colorData[i] |= (byte)(bits & 0b1);
-					bits >>= 1;
-				}
-			}
+			
+			var bitBuffer = new BitBuffer(i => gameRom.PrgRom.ByteAtAddress((ushort)(palettesPointer + i)));
 
 			var palettes = new List<NesPalette>();
 			for (var paletteId = 0; paletteId < 4; paletteId++)
@@ -299,9 +280,240 @@ namespace MacroMage
 				var palette = new NesPalette()
 				{
 					BgColor = new NesColor(0xf),
-					Color1 = new NesColor(colorData[paletteId * 3 + 0]),
-					Color2 = new NesColor(colorData[paletteId * 3 + 1]),
-					Color3 = new NesColor(colorData[paletteId * 3 + 2]),
+					Color1 = new NesColor((byte)bitBuffer.Get(6)),
+					Color2 = new NesColor((byte)bitBuffer.Get(6)),
+					Color3 = new NesColor((byte)bitBuffer.Get(6)),
+				};
+
+				palettes.Add(palette);
+			}
+
+			return palettes;
+		}
+		
+		private List<GameObject> GetGameObjects(Level level)
+		{
+			var objects = new List<GameObject>();
+			objects.Add(null);
+
+			for (var id = 1; id < 0x34 /* TODO */; id++)
+			{
+				var sizeId = gameRom.PrgRom.ByteAtAddress((ushort)(0xbd67 + id));
+				var tilesData = new List<GameObject.TileData>();
+
+				if (id == 0x30 || id == 0x2e || id == 0x31 || id == 0x33) // special case for teleporters and boss doors
+				{
+					// do nothing
+				}
+				else if (sizeId == 0) // single-tile sprite
+				{
+					tilesData.Add(new GameObject.TileData()
+					{
+						Level = level,
+						Id = gameRom.PrgRom.ByteAtAddress((ushort)(0xbdbb + id)) + 1,
+
+						FlipX = false,
+						FlipY = false,
+						PixelOffset = new Point(-4, -4),
+					});
+				}
+				else
+				{
+					var sizeDataPointer = (ushort)(
+						gameRom.PrgRom.ByteAtAddress((ushort)(0xf138 + sizeId)) << 8 |
+						gameRom.PrgRom.ByteAtAddress((ushort)(0xf12f + sizeId))
+					);
+					var tilesCount = gameRom.PrgRom.ByteAtAddress(sizeDataPointer++);
+
+					if (tilesCount > 0)
+					{
+						var spriteDataPointer = (ushort)(
+							gameRom.PrgRom.ByteAtAddress((ushort)(0xbde8 + id)) << 8 |
+							gameRom.PrgRom.ByteAtAddress((ushort)(0xbdbb + id))
+						);
+						var baseSpriteId = gameRom.PrgRom.ByteAtAddress(spriteDataPointer++);
+
+						for (var tileId = 0; tileId < tilesCount; tileId++)
+						{
+							var data = gameRom.PrgRom.ByteAtAddress(spriteDataPointer++);
+							var spriteIdOffset = data & 0b111111;
+
+							if (spriteIdOffset != 0)
+							{
+								tilesData.Add(new GameObject.TileData()
+								{
+									Level = level,
+									Id = baseSpriteId + spriteIdOffset,
+
+									PixelOffset = new Point(
+									(sbyte)gameRom.PrgRom.ByteAtAddress(sizeDataPointer++),
+									(sbyte)gameRom.PrgRom.ByteAtAddress(sizeDataPointer++)
+								),
+									FlipX = (data & 0b1000000) > 0,
+									FlipY = (data & 0b10000000) > 0,
+								});
+							}
+						}
+					}
+				}
+
+				Point pixelOffset = Point.Empty;
+				if (tilesData.Count > 0)
+				{
+					pixelOffset = new Point(
+						tilesData.Select(d => (sbyte)d.PixelOffset.X).Min(),
+						tilesData.Select(d => (sbyte)d.PixelOffset.Y).Min()
+					);
+					for (int tileDataIndex = 0; tileDataIndex < tilesData.Count; tileDataIndex++)
+					{
+						var offset = tilesData[tileDataIndex].PixelOffset;
+						offset.Offset(-pixelOffset.X, -pixelOffset.Y);
+						tilesData[tileDataIndex].PixelOffset = offset;
+					}
+				}
+				if (id == 0x1a) // special case for sideways fan
+				{
+					pixelOffset.X += 4;
+				}
+				pixelOffset.Y += (sbyte)gameRom.PrgRom.ByteAtAddress((ushort)(0xbd4d + sizeId));
+
+				var paletteId = gameRom.PrgRom.ByteAtAddress((ushort)(0xbe6d + id)) & 0b11;
+
+				objects.Add(new GameObject()
+				{
+					Level = level,
+					Id = id,
+					PixelOffset = pixelOffset,
+					TilesData = tilesData,
+					PaletteId = paletteId,
+				});
+			}
+
+			return objects;
+		}
+
+		private List<LevelObject> GetLevelObjects(Level level)
+		{
+			var levelDataPointer = gameRom.PrgRom.WordAtAddress((ushort)(0xdad0 + level.Id * 2));
+			var someCounter = gameRom.PrgRom.ByteAtAddress(levelDataPointer++); // TODO: what is this counter?
+			levelDataPointer += Level.ROWS_COUNT * Tile32Row.UNMIRRORED_TILES_COUNT; // skip level tile data
+			levelDataPointer += someCounter; // TODO: what is this skipping?
+
+			var objectDataPointer = levelDataPointer;
+
+			var bitBuffer = new BitBuffer(i => gameRom.PrgRom.ByteAtAddress((ushort)(objectDataPointer + i)));
+
+			var objects = new List<LevelObject>();
+			var tileY = Level.ROWS_COUNT * 4;
+			while (tileY >= 0)
+			{
+				var instruction = (int)bitBuffer.Get(2);
+
+				bool newObject = false;
+				int objectId = 0;
+				int gameObjectId = -1;
+				int tileX = -1;
+				bool flipX = false, flipY = false;
+				switch (instruction)
+				{
+					case 0: // skip rows
+						tileY -= (int)bitBuffer.Get(3) + 1;
+						break;
+
+					case 1: // object
+						newObject = true;
+
+						flipY = bitBuffer.Get(1) == 1;
+						flipX = bitBuffer.Get(1) == 1;
+						tileX = (int)bitBuffer.Get(5);
+						gameObjectId = gameRom.PrgRom.ByteAtAddress((ushort)(0xdab1 + bitBuffer.Get(5)));
+						break;
+
+					case 2: // object (compressed)
+						newObject = true;
+
+						flipY = false;
+						flipX = false;
+						tileX = (int)bitBuffer.Get(4) * 2 + 1;
+						gameObjectId = gameRom.PrgRom.ByteAtAddress((ushort)(0xdab1 + bitBuffer.Get(4)));
+						break;
+
+					case 3: // end of data
+						tileY = -1;
+						break;
+				}
+
+				if (newObject)
+				{
+					objects.Add(new LevelObject()
+					{
+						Level = level,
+						Id = objectId,
+
+						GameObjectId = gameObjectId,
+						TileX = tileX,
+						TileY = tileY,
+						FlipX = flipX,
+						FlipY = flipY,
+					});
+
+					objectId++;
+				}
+			}
+
+			return objects;
+		}
+
+		private List<PatternTableTile> GetSpriteTiles(Level level)
+		{
+			var tiles = new List<PatternTableTile>();
+
+			for (int id = 0; id < 0x100; id++)
+			{
+				var pattern = new byte[8][];
+
+				for (int columnIndex = 0; columnIndex < 8; columnIndex++)
+				{
+					var row = new byte[8];
+
+					for (int rowIndex = 0; rowIndex < 8; rowIndex++)
+					{
+						var lowerBitPlaneAddress = (ushort)(0x1000 + (id << 4) | (columnIndex << 0));
+						var upperBitPlaneAddress = (ushort)(lowerBitPlaneAddress | (1 << 3));
+
+						row[rowIndex] = (byte)(
+							gameRom.ChrRom.BitAt(upperBitPlaneAddress, (7 - rowIndex)) << 1 |
+							gameRom.ChrRom.BitAt(lowerBitPlaneAddress, (7 - rowIndex))
+						);
+					}
+
+					pattern[columnIndex] = row;
+				}
+
+				tiles.Add(new PatternTableTile()
+				{
+					Level = level,
+					Id = id,
+					Pattern = pattern,
+				});
+			}
+
+			return tiles;
+		}
+
+		private List<NesPalette> GetSpritePalettes(Level level)
+		{
+			var bitBuffer = new BitBuffer(i => gameRom.PrgRom.ByteAtAddress((ushort)(0xbd5f + i)));
+
+			var palettes = new List<NesPalette>();
+			for (var paletteId = 0; paletteId < 4; paletteId++)
+			{
+				var palette = new NesPalette()
+				{
+					BgColor = new NesColor(0xf),
+					Color1 = new NesColor((byte)bitBuffer.Get(6)),
+					Color2 = new NesColor((byte)bitBuffer.Get(6)),
+					Color3 = new NesColor((byte)bitBuffer.Get(6)),
 				};
 
 				palettes.Add(palette);

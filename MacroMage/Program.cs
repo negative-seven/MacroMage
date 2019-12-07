@@ -36,11 +36,13 @@ namespace MacroMage
 
 			Directory.CreateDirectory(OUTPUT_DIRECTORY);
 			Console.WriteLine("Saving level image data");
-			SaveAllTiles(level, colorMapping);
-			Console.WriteLine("Saving tile image data");
 			SaveLevel(OUTPUT_DIRECTORY + "level.bmp", level, colorMapping);
+			Console.WriteLine("Saving tile image data");
+			SaveAllTiles(level, colorMapping);
 
 			Console.WriteLine("Completed");
+
+			Console.ReadKey();
 			return;
 		}
 
@@ -51,20 +53,22 @@ namespace MacroMage
 
 		private static void SaveAllTiles(Level level, NesColorMapping colorMapping)
 		{
-			SaveTiles(level.Tile8s, OUTPUT_DIRECTORY + "tile8s.bmp", colorMapping);
-			SaveTiles(level.Tile16s, OUTPUT_DIRECTORY + "tile16s.bmp", colorMapping);
-			SaveTiles(level.Tile32s, OUTPUT_DIRECTORY + "tile32s.bmp", colorMapping);
-			SaveTiles(level.Tile32s.Select(t => t.GetMirror()), OUTPUT_DIRECTORY + "tile32mirrors.bmp", colorMapping);
+			SaveLevelSegments(level.Tile8s, OUTPUT_DIRECTORY + "tile8s.bmp", colorMapping, 8, 8);
+			SaveLevelSegments(level.Tile16s, OUTPUT_DIRECTORY + "tile16s.bmp", colorMapping, 16, 16);
+			SaveLevelSegments(level.Tile32s, OUTPUT_DIRECTORY + "tile32s.bmp", colorMapping, 32, 32);
+			SaveLevelSegments(level.Tile32s.Select(t => t.GetMirror()), OUTPUT_DIRECTORY + "tile32mirrors.bmp", colorMapping, 32, 32);
+			SaveLevelSegments(level.SpriteTiles, OUTPUT_DIRECTORY + "spritetiles.bmp", colorMapping, 8, 8);
+			SaveLevelSegments(level.GameObjects, OUTPUT_DIRECTORY + "gameobjects.bmp", colorMapping, 64, 64);
 		}
 
-		private static void SaveTiles<T>(IEnumerable<T> tiles, string filepath, NesColorMapping colorMapping)
-			where T : Tile
+		private static void SaveLevelSegments<T>(IEnumerable<T> elements, string filepath, NesColorMapping colorMapping, int elementWidth, int elementHeight)
+			where T : ILevelSegment
 		{
-			var bitmap = new Bitmap(tiles.First().CONST_PIXEL_WIDTH * 16, tiles.First().CONST_PIXEL_HEIGHT * 16);
+			var bitmap = new Bitmap(elementWidth * 16, elementHeight * 16);
 			var graphics = Graphics.FromImage(bitmap);
-			foreach (var tile in tiles)
+			foreach (var e in elements.Where(e => e != null))
 			{
-				graphics.DrawImage(tile.AsBitmap(colorMapping), new Point((tile.Id % 16) * tile.CONST_PIXEL_WIDTH, (tile.Id / 16) * tile.CONST_PIXEL_HEIGHT));
+				graphics.DrawImage(e.AsBitmap(colorMapping), new Point((e.Id % 16) * elementWidth, (e.Id / 16) * elementHeight));
 			}
 			bitmap.Save(filepath);
 		}
